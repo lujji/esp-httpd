@@ -58,7 +58,7 @@
 		<script type="text/javascript" src="js/smoothie_min.js"></script>
 		<script>
 			var ws;
-			var retries = 0;
+			var retries;
 			var series = new TimeSeries();
 			window.onload = function() {
 				wsOpen();
@@ -98,6 +98,7 @@
 					ws.onerror = function(evt) { setMsg("error", "WebSocket error!"); };
 					ws.onmessage = function(evt) { onMessage(evt); };
 					wsOpenStream();
+					retries = 0;
 				}
 			}
 			function wsOpenStream() {
@@ -113,7 +114,7 @@
 				};
 			}
 			function wsWrite(data) {
-				if (ws.readyState == 3 || retries++ > 2)
+				if (ws.readyState == 3 || retries++ > 5)
 					wsOpen();
 				else if (ws.readyState == 1)
 					ws.send(data);
