@@ -145,7 +145,7 @@ void websocket_open_cb(struct tcp_pcb *pcb, const char *uri)
     printf("WS URI: %s\n", uri);
     if (!strcmp(uri, "/stream")) {
         printf("request for streaming\n");
-        xTaskCreate(&websocket_task, "websocket_task", 512, (void *) pcb, 2, NULL);
+        xTaskCreate(&websocket_task, "websocket_task", 256, (void *) pcb, 2, NULL);
     }
 }
 
@@ -194,5 +194,5 @@ void user_init(void)
     gpio_write(LED_PIN, true);
 
     /* initialize tasks */
-    xTaskCreate(&httpd_task, "HTTP Daemon", 1024, NULL, 2, NULL);
+    xTaskCreate(&httpd_task, "HTTP Daemon", 128, NULL, 2, NULL);
 }
