@@ -231,8 +231,10 @@ void httpd_post_data_recved(void *connection, u16_t recved_len);
 
 #endif /* LWIP_HTTPD_SUPPORT_POST */
 
-#define WS_TEXT_MODE 0x01
-#define WS_BIN_MODE  0x02
+enum {
+  WS_TEXT_MODE = 0x01,
+  WS_BIN_MODE  = 0x02,
+} WS_MODE;
 
 typedef void (*tWsHandler)(struct tcp_pcb *pcb, uint8_t *data, u16_t data_len, uint8_t mode);
 typedef void (*tWsOpenHandler)(struct tcp_pcb *pcb, const char *uri);

@@ -283,7 +283,9 @@ static const char WS_RSP[] = "HTTP/1.1 101 Switching Protocols\r\n" \
 #define WS_BUF_LEN           (sizeof(WS_RSP) + sizeof(CRLF CRLF) + 30 - 2)
 
 /* WebSocket timeout: X*(HTTPD_POLL_INTERVAL), default is 10*4*500ms = 20s */
+#ifndef WS_TIMEOUT
 #define WS_TIMEOUT           10
+#endif
 
 /* Callback functions */
 static tWsHandler websocket_cb = NULL;
