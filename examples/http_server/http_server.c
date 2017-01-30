@@ -104,6 +104,9 @@ void websocket_task(void *pvParameter)
 
 /**
  * This function is called when websocket frame is received.
+ *
+ * Note: this function is executed on TCP thread and should return as soon
+ * as possible.
  */
 void websocket_cb(struct tcp_pcb *pcb, uint8_t *data, u16_t data_len, uint8_t mode)
 {
@@ -114,6 +117,7 @@ void websocket_cb(struct tcp_pcb *pcb, uint8_t *data, u16_t data_len, uint8_t mo
 
     switch (data[0]) {
         case 'A': // ADC
+            /* This should be done on a separate thread in 'real' applications */
             val = sdk_system_adc_read();
             break;
         case 'D': // Disable LED
