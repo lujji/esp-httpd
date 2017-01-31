@@ -4,7 +4,7 @@ This is a basic HTTP server with WebSockets for ESP8266 based on httpd from LwIP
 This server was intended to be used with [esp-open-rtos](https://github.com/SuperHouse/esp-open-rtos), although it should work with non-RTOS version of SDK, since httpd is based on callbacks.
 
 WebSockets implementation supports binary and text modes. Multiple sockets are supported.
-Maximum frame size is 125 bytes and continuation frames are not implemented.
+Continuation frames are not implemented.
 
 ## Building
 Run `make html` before building the project in order to generate `fsdata.c` with web contents.
@@ -15,4 +15,4 @@ By default, a WebSocket is closed after 20 seconds of inactivity to conserve mem
 To enable debugging extra flags `-DLWIP_DEBUG=1 -DHTTPD_DEBUG=LWIP_DBG_ON` should be passed at compile-time.
 
 ## Code Structure
-Example code is located inside `http_server`. Web-page contents are located inside `fsdata/fs` subdirectory. Httpd expects a `fsdata.c` file, which contains C structures generated from the contents of `fs` folder. This file is created with `makefsdata` Perl utility.
+Example code is located inside `http_server`. It demonstrates streaming ADC reading and server status parameters ([screenshot](https://lujji.github.io/blog/esp-httpd/websocket_demo.png)). Web-page contents are located inside `fsdata/fs` subdirectory. Httpd expects a `fsdata.c` file, which contains C structures generated from the contents of `fs` folder. This file is created with `makefsdata` Perl utility.
