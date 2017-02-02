@@ -2444,7 +2444,7 @@ websocket_write(struct tcp_pcb *pcb, const uint8_t *data, uint16_t len, uint8_t 
 static err_t
 websocket_send_close(struct tcp_pcb *pcb)
 {
-  const char buf[] = {0x88, 0x02, 0x03, 0xe8};
+  const u8_t buf[] = {0x88, 0x02, 0x03, 0xe8};
   u16_t len = sizeof (buf);
   LWIP_DEBUGF(HTTPD_DEBUG, ("[wsoc] closing connection\n"));
   return tcp_write(pcb, buf, len, TCP_WRITE_FLAG_COPY);
@@ -2492,13 +2492,15 @@ websocket_parse(struct tcp_pcb *pcb, struct pbuf *p)
             len = (data[2] << 8) | data[3];
           }
 
+          data_len -= data_offset;
+
           if (len > data_len) {
             LWIP_DEBUGF(HTTPD_DEBUG, ("Error: incorrect frame size\n"));
             return ERR_VAL;
           }
 
-          if (data_len - data_offset != len)
-            LWIP_DEBUGF(HTTPD_DEBUG, ("Warning: multiple frames received\n"));
+          if (data_len != len)
+            LWIP_DEBUGF(HTTPD_DEBUG, ("Warning: segmented frame received\n"));
 
           /* unmask */
           for (int i = 0; i < len; i++)
@@ -2539,19 +2541,17 @@ http_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
       return ERR_BUF;
     }
     tcp_recved(pcb, p->tot_len);
-
     err_t err = websocket_parse(pcb, p);
-
     if (p != NULL) {
       /* otherwise tcp buffer hogs */
       LWIP_DEBUGF(HTTPD_DEBUG, ("[wsoc] freeing buffer\n"));
       pbuf_free(p);
     }
-
     if (err == ERR_CLSD) {
       http_close_conn(pcb, hs);
     }
-
+    /* reset timeout */
+    hs->retries = 0;
     return ERR_OK;
   }
 
