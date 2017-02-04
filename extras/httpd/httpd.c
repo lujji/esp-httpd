@@ -274,13 +274,17 @@
 
 static const char WS_HEADER[] = "Upgrade: websocket\r\n";
 static const char WS_GUID[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+static const char WS_KEY[] = "Sec-WebSocket-Key: ";
 static const char WS_RSP[] = "HTTP/1.1 101 Switching Protocols\r\n" \
                              "Upgrade: websocket\r\n" \
                              "Connection: Upgrade\r\n" \
                              "Sec-WebSocket-Accept: ";
 
-/* Response buffer length (30 = base64 encoded key max length) */
-#define WS_BUF_LEN           (sizeof(WS_RSP) + sizeof(CRLF CRLF) + 30 - 2)
+/* base64 encoded key length */
+#define WS_BASE64_LEN        29
+
+/* Response buffer length */
+#define WS_RSP_LEN           (sizeof(WS_RSP) + sizeof(CRLF CRLF) - 2 + WS_BASE64_LEN)
 
 /* WebSocket timeout: X*(HTTPD_POLL_INTERVAL), default is 10*4*500ms = 20s */
 #ifndef WS_TIMEOUT
@@ -1960,25 +1964,24 @@ http_parse_request(struct pbuf **inp, struct http_state *hs, struct tcp_pcb *pcb
 
   /* Parse WebSocket request */
   hs->is_websocket = 0;
-  unsigned char *retval = NULL;
   if (strncasestr(data, WS_HEADER, data_len)) {
     LWIP_DEBUGF(HTTPD_DEBUG, ("WebSocket opening handshake\n"));
-    char *key_start = strncasestr(data, "Sec-WebSocket-Key: ", data_len);
+    char *key_start = strncasestr(data, WS_KEY, data_len);
     if (key_start) {
       key_start += 19;
-      char *key_end = strncasestr(key_start, "\r\n", data_len);
+      char *key_end = strnstr(key_start, "\r\n", data_len);
       if (key_end) {
         char key[64];
-        int len = sizeof (char) * (key_end - key_start);
-        if ((len + sizeof (WS_GUID) < sizeof (key)) && (len > 0)) {
+        int len = sizeof(char) * (key_end - key_start);
+        if ((len + sizeof(WS_GUID) < sizeof(key)) && (len > 0)) {
           /* Allocate response buffer */
-          retval = mem_malloc(WS_BUF_LEN);
+          unsigned char *retval = mem_malloc(WS_RSP_LEN);
           if (retval == NULL) {
             LWIP_DEBUGF(HTTPD_DEBUG, ("Out of memory\n"));
             return ERR_MEM;
           }
           unsigned char *retval_ptr;
-          retval_ptr = memcpy(retval, WS_RSP, sizeof(WS_RSP));
+          retval_ptr = memcpy(retval, WS_RSP, sizeof(WS_RSP) - 1);
           retval_ptr += sizeof(WS_RSP) - 1;
 
           /* Concatenate key */
@@ -1992,15 +1995,20 @@ http_parse_request(struct pbuf **inp, struct http_state *hs, struct tcp_pcb *pcb
           mbedtls_sha1((unsigned char *) key, key_len, sha1sum);
 
           /* Base64 encode */
-          unsigned int olen;
-          mbedtls_base64_encode(NULL, 0, &olen, sha1sum, 20); //get length
-          int ok = mbedtls_base64_encode(retval_ptr, WS_BUF_LEN, &olen, sha1sum, 20);
+          unsigned int olen = WS_BASE64_LEN;
+          int ok = mbedtls_base64_encode(retval_ptr, WS_BASE64_LEN, &olen, sha1sum, 20);
 
           if (ok == 0) {
             memcpy(&retval_ptr[olen], CRLF CRLF, sizeof(CRLF CRLF));
-            hs->is_websocket = 1;
             LWIP_DEBUGF(HTTPD_DEBUG, ("Base64 encoded: %s\n", retval_ptr));
+
+            /* Send response */
+            LWIP_DEBUGF(HTTPD_DEBUG, ("Sending:\n%s\n", retval));
+            u16_t retval_len = WS_RSP_LEN - 1;
+            http_write(pcb, retval, &retval_len, 0);
+            hs->is_websocket = 1;
           }
+          mem_free(retval);
         } else {
           LWIP_DEBUGF(HTTPD_DEBUG, ("Key overflow"));
           return ERR_MEM;
@@ -2097,11 +2105,7 @@ http_parse_request(struct pbuf **inp, struct http_state *hs, struct tcp_pcb *pcb
           } else
 #endif /* LWIP_HTTPD_SUPPORT_POST */
           {
-            if (hs->is_websocket && retval != NULL) {
-              LWIP_DEBUGF(HTTPD_DEBUG, ("Sending:\n%s\n", retval));
-              u16_t len = strlen((char *) retval);
-              http_write(pcb, retval, &len, 0);
-              mem_free(retval);
+            if (hs->is_websocket) {
               if(websocket_open_cb)
                 websocket_open_cb(pcb, uri);
               return ERR_OK; // We handled this
