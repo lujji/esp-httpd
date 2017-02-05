@@ -702,12 +702,14 @@ http_close_or_abort_conn(struct tcp_pcb *pcb, struct http_state *hs, u8_t abort_
     if (hs->is_websocket)
       websocket_send_close(pcb);
 
+#if LWIP_HTTPD_SUPPORT_REQUESTLIST
     if (hs->req != NULL) {
       /* this should not happen */
       LWIP_DEBUGF(HTTPD_DEBUG, ("Freeing buffer (malformed request?)\n"));
       pbuf_free(hs->req);
       hs->req = NULL;
     }
+#endif
   }
 
   tcp_arg(pcb, NULL);
@@ -1968,8 +1970,8 @@ http_parse_request(struct pbuf **inp, struct http_state *hs, struct tcp_pcb *pcb
     LWIP_DEBUGF(HTTPD_DEBUG, ("WebSocket opening handshake\n"));
     char *key_start = strncasestr(data, WS_KEY, data_len);
     if (key_start) {
-      key_start += 19;
-      char *key_end = strnstr(key_start, "\r\n", data_len);
+      key_start += sizeof(WS_KEY) - 1;
+      char *key_end = strnstr(key_start, CRLF, data_len);
       if (key_end) {
         char key[64];
         int len = sizeof(char) * (key_end - key_start);
@@ -1999,13 +2001,12 @@ http_parse_request(struct pbuf **inp, struct http_state *hs, struct tcp_pcb *pcb
           int ok = mbedtls_base64_encode(retval_ptr, WS_BASE64_LEN, &olen, sha1sum, 20);
 
           if (ok == 0) {
-            memcpy(&retval_ptr[olen], CRLF CRLF, sizeof(CRLF CRLF));
             LWIP_DEBUGF(HTTPD_DEBUG, ("Base64 encoded: %s\n", retval_ptr));
 
             /* Send response */
+            memcpy(&retval_ptr[olen], CRLF CRLF, sizeof(CRLF CRLF));
             LWIP_DEBUGF(HTTPD_DEBUG, ("Sending:\n%s\n", retval));
-            u16_t retval_len = WS_RSP_LEN - 1;
-            http_write(pcb, retval, &retval_len, 0);
+            tcp_write(pcb, retval, WS_RSP_LEN - 1, 0);
             hs->is_websocket = 1;
           }
           mem_free(retval);
